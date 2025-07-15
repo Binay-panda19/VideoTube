@@ -1,4 +1,4 @@
-import mongoose , { Schema } from 'mnongoose';
+import mongoose , { Schema } from 'mongoose';
 import jwt from 'jsonwebtoken';
 import bcrypt from "bcrypt";
 
@@ -19,22 +19,22 @@ const userSchema = new Schema(
         lowercase:true,
         trim: true,
     },
-    fullname:{
+    fullName:{
         type: String,
         required: true,
         trim: true,
         index: true
     },
     avatar:{
-        type:String, //cloudinary Url
+        type: String, //cloudinary Url
         required:true
     },
     coverImage:{
-        type:String, //cloudinary Url
+        type: String, //cloudinary Url
     },
     watchHistory:[
         {
-            type: Schema.Types.objectId,
+            type: Schema.Types.ObjectId,
             ref:"Video"
         }
     ],
@@ -65,7 +65,7 @@ userSchema.methods.createJWT = function () {
             _id: this._id,
             username: this.username,
             email: this.email,
-            fullname: this.fullname,
+            fullName: this.fullName,
         }, 
         process.env.JWT_SECRET, 
         {expiresIn: process.env.JWT_EXPIRATION})
