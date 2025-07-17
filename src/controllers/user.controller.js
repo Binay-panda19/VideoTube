@@ -5,6 +5,7 @@ import { uploadOnCloudinary } from '../utils/cloudinary.js';
 import { apiResponse } from '../utils/apiResponse.js';
 // import { verifyJWT } from '../middlewares/auth.middleware.js';
 import jwt from "jsonwebtoken";
+import mongoose from 'mongoose';
 
 const generateAccessAndRefreshTokens = async (userId) =>{
   try{
@@ -243,11 +244,11 @@ const getCurrentUser = asyncHandler((req,res) => {
 const updateAcount = asyncHandler(async(req,res)=>{
   const {fullName , email} = req.body
 
-  if(!fullName || !email){
+  if(!(fullName || email)){
     throw new apiError(400,"fields are empty ")
   }
 
-  const user  = User.findByIdAndUpdate(
+  const user  = await User.findByIdAndUpdate(
     req.user?._id,{
       $set : {
         fullName,
@@ -323,75 +324,82 @@ const updateUserCoverImage = asyncHandler(async(req,res)=>{
 
 
 const getUserChannelProfile = asyncHandler(async(req,res)=>{
-  const {username} = req.params
-  
-  if(!username?.trim()){
-    throw new apiError(400,"Username is missing");
-  }
-  
-  const channel = User.aggregate([
-    {
-      $match:{
-        username: username.toLowerCase(),
-      }
-    },
-    {
-      $lookup : {
-        from:"subscriptions",
-        localField:"_id",
-        foreignField:"channel",
-        as:"subscribers"
-      }
-    },
-    {
-      $lookup : {
-        from:"subscriptions",
-        localField:"_id",
-        foreignField:"subscribers",
-        as:"subscribedTo"
-      }
-    },
-    {
-      $addFields:{
-          subscribersCount:{
-            $size:"$subscribers"
-          },
-          channelsSubscribersTo:{
-            $size:"$subsribedTo"
-          },
-          isSubscribed :{
-            $cond:{
-              if:{$in : [req.user?._id,"$subscribers.subscriber"]},
-                then:true,
-                else:false
-              }
-            }
-        }        
-    },
-    {
-      $project:{
-        fullName:1,
-        username:1,
-        subscribersCount:1,
-        channelsSubscribersTo:1,
-        isSubscribed:1,
-        email:1,
-        avatar:1,
-        coverImage:1
-      }
+try {
+    const {username} = req.params
+    
+    console.log("user check:",username)
+    if(!username?.trim){
+      throw new apiError(400,"Username is missing");
     }
-  ])
+    
+    const channel = await User.aggregate([
+      {
+        $match:{
+          username: username.toLowerCase(),
+        }
+      },
+      {
+        $lookup : {
+          from:"subscriptions",
+          localField:"_id",
+          foreignField:"channel",
+          as:"subscribers"
+        }
+      },
+      {
+        $lookup : {
+          from:"subscriptions",
+          localField:"_id",
+          foreignField:"subscribers",
+          as:"subscribedTo"
+        }
+      },
+      {
+        $addFields:{
+            subscribersCount:{
+              $size:"$subscribers"
+            },
+            channelsSubscribersTo:{
+              $size:"$subscribedTo"
+            },
+            isSubscribed :{
+              $cond:{
+                if:{$in : [req.user?._id,"$subscribers.subscriber"]},
+                  then:true,
+                  else:false
+                }
+              }
+          }        
+      },
+      {
+        $project:{
+          fullName:1,
+          username:1,
+          subscribersCount:1,
+          channelsSubscribersTo:1,
+          isSubscribed:1,
+          email:1,
+          avatar:1,
+          coverImage:1
+        }
+      }
+    ])
+  
+    console.log("channel update:",channel)
 
-  if(!channel?.length){
-    throw new apiError(400,"Channel does not exist")
-  }
-
-  return res.status(200)
-  .json(
-    new apiResponse(
-      200,channel[0],"User details fetched successfully"
+    if(!channel?.length){
+      throw new apiError(400,"Channel does not exist")
+    }
+  
+    return res.status(200)
+    .json(
+      new apiResponse(
+        200,channel[0],"User details fetched successfully"
+      )
     )
-  )
+} catch (error) {
+  throw new apiError(400,"something went wrong with the channel update")
+}
 
 }) 
 
